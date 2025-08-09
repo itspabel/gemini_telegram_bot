@@ -18,6 +18,7 @@ image_model = genai.GenerativeModel("image-alpha-001")  # For image generation
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Hey! 👋 I’m your Gemini-powered bot.\n"
+        "Created By Tasfiqul Alam Pabel \n"
         "Send me any text to chat, or start your message with /image to generate pictures!\n\n"
         "Example:\n/image a beautiful sunset over mountains"
     )
@@ -26,17 +27,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text.strip()
     try:
         if user_message.lower().startswith("/image"):
-            # Extract prompt after /image
             prompt = user_message[len("/image"):].strip()
             if not prompt:
                 await update.message.reply_text("Please provide a prompt after /image command.")
                 return
-            
-            # Generate image URL
-            response = image_model.generate_image(prompt=prompt, model="image-alpha-001", max_output_tokens=256)
-            # Send the image URL as a message (Telegram supports URL previews)
-            image_url = response.artifacts[0].uri
-            await update.message.reply_photo(photo=image_url)
+
+            # Generate image (updated and debugged logic)
+            try:
+                # Remove the model argument if not needed
+                response = image_model.generate_image(prompt=prompt, max_output_tokens=256)
+                # Debug: print the raw response to the console
+                print("Image response:", response)
+
+                # Try to handle various possible response structures
+                image_url = None
+                if hasattr(response, "artifacts") and response.artifacts:
+                    # Standard expected structure
+                    image_url = response.artifacts[0].uri
+                elif hasattr(response, "image_url"):
+                    # Alternate structure (future-proof)
+                    image_url = response.image_url
+                elif hasattr(response, "images") and response.images:
+                    # Sometimes images list is returned
+                    image_url = response.images[0].url
+                else:
+                    await update.message.reply_text("The image response format is unrecognized. Please check your Gemini API access and response.")
+                    return
+
+                await update.message.reply_photo(photo=image_url)
+            except Exception as e:
+                await update.message.reply_text(f"⚠️ Image generation error: {str(e)}")
         else:
             # Generate text response
             response = text_model.generate_content(user_message)
